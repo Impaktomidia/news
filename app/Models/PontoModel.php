@@ -1,4 +1,35 @@
 <?php
+
+<?php
+// No topo do PontoModel.php, adicionar:
+require_once __DIR__ . '/../../config/cache.php';
+
+// Depois adicionar estes métodos na classe:
+public function obterClientesAtivos() {
+    return cache()->remember('clientes_ativos', function() {
+        $sql = "SELECT DISTINCT cliente FROM pontos WHERE ativo = 1 AND cliente IS NOT NULL AND cliente != '' ORDER BY cliente";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }, 1800); // Cache por 30 minutos
+}
+
+public function obterEstatisticas() {
+    return cache()->remember('estatisticas_dashboard', function() {
+        $sql = "SELECT 
+                    COUNT(*) as total,
+                    COUNT(CASE WHEN situacao = 'Disponível' THEN 1 END) as disponiveis,
+                    COUNT(CASE WHEN situacao = 'Ocupado' THEN 1 END) as ocupados,
+                    COUNT(CASE WHEN situacao = 'Reservado' THEN 1 END) as reservados,
+                    COUNT(CASE WHEN situacao = 'Vencido' THEN 1 END) as vencidos
+                FROM pontos WHERE ativo = 1";
+        
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }, 600); // Cache por 10 minutos
+}
+
 class PontoModelOptimized extends BaseModel {
     protected $table = 'pontos';
     protected $cache;
