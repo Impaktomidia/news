@@ -1,5 +1,10 @@
 <?php
+// ============================================
+// 4. CORRIGIR app/Models/UsuarioModel.php (ARQUIVO VAZIO)
+// ============================================
 // app/Models/UsuarioModel.php
+require_once __DIR__ . '/BaseModel.php';
+
 class UsuarioModel extends BaseModel {
     protected $table = 'admins';
     protected $fillable = ['usuario', 'senha', 'email', 'ativo'];
@@ -13,7 +18,7 @@ class UsuarioModel extends BaseModel {
         $user = $stmt->fetch();
         
         if ($user && password_verify($senha, $user['senha'])) {
-            // Remove senha do retorno
+            // Remove senha do retorno por segurança
             unset($user['senha']);
             return $user;
         }
@@ -27,5 +32,12 @@ class UsuarioModel extends BaseModel {
         }
         
         return $this->create($data);
+    }
+    
+    public function atualizarUltimoLogin($userId) {
+        $sql = "UPDATE {$this->table} SET ultimo_login = NOW() WHERE id = :id";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':id', $userId, PDO::PARAM_INT);
+        return $stmt->execute();
     }
 }
