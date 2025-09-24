@@ -1,79 +1,31 @@
 <?php
-// ============================================
-// 1. SEGURANÇA BÁSICA - config/security.php
-// Criar este arquivo novo
-// ============================================
+// config/database.php - Versão corrigida para XAMPP
 
-<?php
-// config/security.php
-session_start();
+// Detectar ambiente automaticamente
+$isLocalhost = isset($_SERVER['HTTP_HOST']) && 
+               (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || 
+                strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false ||
+                strpos($_SERVER['HTTP_HOST'], 'xampp') !== false);
 
-// Configurações de segurança da sessão
-ini_set('session.cookie_httponly', 1);
-ini_set('session.use_only_cookies', 1);
-if (isset($_SERVER['HTTPS'])) {
-    ini_set('session.cookie_secure', 1);
-}
-
-// Gerar token CSRF
-if (!isset($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-
-// Função para validar CSRF
-function validateCSRF($token) {
-    return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
-}
-
-// Função para sanitizar strings
-function sanitizeString($input, $maxLength = 255) {
-    if (!is_string($input)) return '';
-    $input = trim($input);
-    $input = htmlspecialchars($input, ENT_QUOTES, 'UTF-8');
-    return substr($input, 0, $maxLength);
-}
-
-// Função para validar ID
-function validateId($id) {
-    return filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-}
-
-// Headers de segurança
-if (!headers_sent()) {
-    header('X-Content-Type-Options: nosniff');
-    header('X-Frame-Options: SAMEORIGIN');
-    header('X-XSS-Protection: 1; mode=block');
-}
-
-// ============================================
-// 2. MELHORAR config/database.php ATUAL
-// Substituir seu arquivo existente
-// ============================================
-
-<?php
-// config/database.php - Versão melhorada
-
-// Mover credenciais para arquivo separado (mais seguro)
-$credentials = [
-    'production' => [
+if ($isLocalhost) {
+    // Configuração para XAMPP/desenvolvimento local
+    $config = [
+        'host' => 'localhost',
+        'db'   => 'ipk2024',  // Certifique-se que este DB existe
+        'user' => 'root',
+        'pass' => '',         // XAMPP normalmente não tem senha para root
+    ];
+} else {
+    // Configuração para produção
+    $config = [
         'host' => 'ipk2024.mysql.uhserver.com',
         'db'   => 'ipk2024',
         'user' => 'ipk',
         'pass' => 'Ipk@12647',
-    ],
-    'local' => [
-        'host' => 'localhost',
-        'db'   => 'ipk2024',
-        'user' => 'root',
-        'pass' => '',
-    ]
-];
+    ];
+}
 
-// Detectar ambiente
-$env = (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false) ? 'local' : 'production';
-$config = $credentials[$env];
-
-// Função para obter conexão otimizada
+// Função para obter conexão
 function getDatabase() {
     global $config;
     static $connection = null;
@@ -90,17 +42,20 @@ function getDatabase() {
         try {
             $connection = new PDO($dsn, $config['user'], $config['pass'], $options);
             
-            // Log conexão bem-sucedida
-            error_log("Database connected successfully");
+            // Log da conexão bem-sucedida
+            error_log("Conexão com banco OK: {$config['host']}/{$config['db']}");
             
         } catch (PDOException $e) {
-            error_log("Database connection failed: " . $e->getMessage());
+            // Log do erro detalhado
+            error_log("Erro de conexão DB: " . $e->getMessage());
+            error_log("Tentando conectar: {$config['host']}/{$config['db']} com usuário '{$config['user']}'");
             
-            // Em produção, não mostrar detalhes do erro
-            if ($env === 'production') {
-                die("Erro na conexão com banco de dados");
+            // Em desenvolvimento, mostrar erro detalhado
+            if ($GLOBALS['isLocalhost'] ?? false) {
+                die("Erro de conexão: " . $e->getMessage() . 
+                    "<br>Host: {$config['host']}<br>DB: {$config['db']}<br>User: {$config['user']}");
             } else {
-                die("Erro na conexão: " . $e->getMessage());
+                die("Erro na conexão com banco de dados");
             }
         }
     }
@@ -108,10 +63,8 @@ function getDatabase() {
     return $connection;
 }
 
+// Tornar variável global acessível
+$GLOBALS['isLocalhost'] = $isLocalhost;
+
 // Retornar configuração para compatibilidade
 return $config;
-
-// ============================================
-// 3. MELHORAR app/Controller/PontoController.php
-// Adicionar no topo do seu arquivo existente
-// ============================================

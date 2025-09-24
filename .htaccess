@@ -1,0 +1,28 @@
+# Garantir que o diretório público seja o ponto de entrada
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Configurações de segurança
+<Files .env>
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files .env.example>
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Cache para assets estáticos
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+</IfModule>

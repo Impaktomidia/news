@@ -1,110 +1,120 @@
 <?php
-
-<?php
-// No topo do PontoModel.php, adicionar:
 require_once __DIR__ . '/../../config/cache.php';
 
-// Depois adicionar estes métodos na classe:
-public function obterClientesAtivos() {
-    return cache()->remember('clientes_ativos', function() {
-        $sql = "SELECT DISTINCT cliente FROM pontos WHERE ativo = 1 AND cliente IS NOT NULL AND cliente != '' ORDER BY cliente";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_COLUMN);
-    }, 1800); // Cache por 30 minutos
-}
+class PontoModel {
+    private $pdo;
 
-public function obterEstatisticas() {
-    return cache()->remember('estatisticas_dashboard', function() {
-        $sql = "SELECT 
-                    COUNT(*) as total,
-                    COUNT(CASE WHEN situacao = 'Disponível' THEN 1 END) as disponiveis,
-                    COUNT(CASE WHEN situacao = 'Ocupado' THEN 1 END) as ocupados,
-                    COUNT(CASE WHEN situacao = 'Reservado' THEN 1 END) as reservados,
-                    COUNT(CASE WHEN situacao = 'Vencido' THEN 1 END) as vencidos
-                FROM pontos WHERE ativo = 1";
-        
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute();
-        return $stmt->fetch(PDO::FETCH_ASSOC);
-    }, 600); // Cache por 10 minutos
-}
-
-class PontoModelOptimized extends BaseModel {
-    protected $table = 'pontos';
-    protected $cache;
-    protected $logger;
-    
     public function __construct() {
-        parent::__construct();
-        $this->cache = new CacheService();
-        $this->logger = new LogService();
+        $config = require __DIR__ . '/../../config/database.php';
+        $this->pdo = getDatabase();
     }
-    
-    public function listarPaginadoComCache(array $filtros = [], int $pagina = 1, int $limite = 10) {
-        $cacheKey = 'pontos_' . md5(serialize($filtros) . $pagina . $limite);
-        
-        return $this->cache->remember($cacheKey, function() use ($filtros, $pagina, $limite) {
-            return $this->listarPaginado($filtros, $pagina, $limite);
-        }, 300); // Cache por 5 minutos
-    }
-    
-    public function obterClientesAtivosComCache() {
-        return $this->cache->remember('clientes_ativos', function() {
-            return $this->obterClientesAtivos();
-        }, 1800); // Cache por 30 minutos
-    }
-    
-    public function obterEstatisticasComCache() {
-        return $this->cache->remember('estatisticas_dashboard', function() {
-            return $this->obterEstatisticas();
-        }, 600); // Cache por 10 minutos
-    }
-    
-    // Método otimizado com índices
-    public function buscarPorTexto($texto, $limite = 10) {
-        $sql = "SELECT * FROM {$this->table} 
-                WHERE ativo = 1 
-                AND (MATCH(logradouro, descricao, cliente) AGAINST(:texto IN BOOLEAN MODE)
-                     OR numero LIKE :numero)
-                ORDER BY 
-                    CASE 
-                        WHEN numero = :texto_exato THEN 1
-                        WHEN numero LIKE :numero_like THEN 2
-                        ELSE 3
-                    END,
-                    MATCH(logradouro, descricao, cliente) AGAINST(:texto IN BOOLEAN MODE) DESC
-                LIMIT :limite";
-        
+
+    /**
+     * Lista pontos com filtros e paginação
+     */
+    public function listarPaginado(array $filtros = [], int $pagina = 1, int $limite = 5): array {
+        $offset = ($pagina - 1) * $limite;
+
+        $sql = "SELECT * FROM pontos WHERE 1=1";
+        $params = $this->montarFiltros($sql, $filtros);
+
+        $sql .= " ORDER BY id DESC LIMIT :limite OFFSET :offset";
+
         $stmt = $this->pdo->prepare($sql);
-        $stmt->bindValue(':texto', $texto);
-        $stmt->bindValue(':numero', "%$texto%");
-        $stmt->bindValue(':texto_exato', $texto);
-        $stmt->bindValue(':numero_like', "$texto%");
+
+        // Bind params dinâmicos
+        foreach ($params as $chave => $valor) {
+            $stmt->bindValue(":$chave", $valor);
+        }
         $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
-        
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+
         $stmt->execute();
-        return $stmt->fetchAll();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-    
-    // Invalidar cache quando dados são alterados
-    public function create(array $data) {
-        $result = parent::create($data);
-        $this->invalidateCache();
-        return $result;
+
+    /**
+     * Conta total de registros
+     */
+    public function contar(array $filtros = []): int {
+        $sql = "SELECT COUNT(*) as total FROM pontos WHERE 1=1";
+        $params = $this->montarFiltros($sql, $filtros);
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (int) ($resultado['total'] ?? 0);
     }
-    
-    public function update($id, array $data) {
-        $result = parent::update($id, $data);
-        $this->invalidateCache();
-        return $result;
+
+    /**
+     * Monta filtros para SQL
+     */
+    private function montarFiltros(&$sql, array $filtros): array {
+        $params = [];
+
+        if (!empty($filtros['situacao'])) {
+            $sql .= " AND situacao = :situacao";
+            $params['situacao'] = $filtros['situacao'];
+        }
+
+        if (!empty($filtros['regiao'])) {
+            $sql .= " AND regiao = :regiao";
+            $params['regiao'] = $filtros['regiao'];
+        }
+
+        if (!empty($filtros['tipo'])) {
+            $sql .= " AND tipo = :tipo";
+            $params['tipo'] = $filtros['tipo'];
+        }
+
+        if (!empty($filtros['cidade'])) {
+            $sql .= " AND cidade = :cidade";
+            $params['cidade'] = $filtros['cidade'];
+        }
+
+        if (!empty($filtros['busca'])) {
+            $sql .= " AND (descricao LIKE :busca OR cliente LIKE :busca)";
+            $params['busca'] = '%' . $filtros['busca'] . '%';
+        }
+
+        return $params;
     }
-    
-    private function invalidateCache() {
-        $this->cache->delete('clientes_ativos');
-        $this->cache->delete('estatisticas_dashboard');
-        
-        // Invalidar caches de listagem (aproximação)
-        $this->cache->flush();
+
+    public function buscarPorNumeros($numeros) {
+        if (empty($numeros)) return [];
+
+        $placeholders = implode(',', array_fill(0, count($numeros), '?'));
+        $sql = "SELECT * FROM pontos WHERE numero IN ($placeholders)";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($numeros);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Métodos com cache
+    public function obterClientesAtivos() {
+        return cache()->remember('clientes_ativos', function() {
+            $sql = "SELECT DISTINCT cliente FROM pontos WHERE ativo = 1 AND cliente IS NOT NULL AND cliente != '' ORDER BY cliente";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+        }, 1800);
+    }
+
+    public function obterEstatisticas() {
+        return cache()->remember('estatisticas_dashboard', function() {
+            $sql = "SELECT 
+                        COUNT(*) as total,
+                        COUNT(CASE WHEN situacao = 'Disponível' THEN 1 END) as disponiveis,
+                        COUNT(CASE WHEN situacao = 'Ocupado' THEN 1 END) as ocupados,
+                        COUNT(CASE WHEN situacao = 'Reservado' THEN 1 END) as reservados,
+                        COUNT(CASE WHEN situacao = 'Vencido' THEN 1 END) as vencidos
+                    FROM pontos WHERE ativo = 1";
+            
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        }, 600);
     }
 }
