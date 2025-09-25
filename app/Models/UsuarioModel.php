@@ -1,7 +1,4 @@
 <?php
-// ============================================
-// 4. CORRIGIR app/Models/UsuarioModel.php (ARQUIVO VAZIO)
-// ============================================
 // app/Models/UsuarioModel.php
 require_once __DIR__ . '/BaseModel.php';
 

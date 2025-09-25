@@ -7,7 +7,7 @@ abstract class BaseModel {
     protected $primaryKey = 'id';
     
     public function __construct() {
-        $this->pdo = DatabaseConfig::getInstance()->getConnection();
+        this->pdo = getDatabase(); // Função global para obter a conexão PDO
     }
     
     public function find($id) {
