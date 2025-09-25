@@ -6,6 +6,21 @@
 
 session_start();
 
+/// Processar logout se vier redirecionado
+if (isset($_GET['mensagem']) && $_GET['mensagem'] === 'logout_sucesso') {
+    $mensagem_sucesso = "Logout realizado com sucesso!";
+}
+
+// Mostrar mensagem no HTML:
+?>
+<?php if (isset($mensagem_sucesso)): ?>
+    <div class="alert alert-success">
+        ✅ <?= htmlspecialchars($mensagem_sucesso) ?>
+    </div>
+<?php endif; ?>
+
+<?php
+
 // Verificar se já está logado
 if (isset($_SESSION['usuario'])) {
     header("Location: gestor/");

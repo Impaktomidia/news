@@ -4,96 +4,210 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Impakto Mídia</title>
-    <link rel="stylesheet" href="/public/assets/css/gestor.css">
     <style>
-        .dashboard { padding: 20px; max-width: 1200px; margin: 0 auto; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
-        .stat-number { font-size: 2.5rem; font-weight: 700; color: #2c3e50; margin-bottom: 10px; }
-        .stat-label { color: #7f8c8d; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
-        .stat-card.disponivel .stat-number { color: #27AE60; }
-        .stat-card.ocupado .stat-number { color: #E74C3C; }
-        .stat-card.reservado .stat-number { color: #F39C12; }
-        .stat-card.vencido .stat-number { color: #8E44AD; }
+        /* Usar o mesmo estilo do gestor/index.php */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
-        .recent-section { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .section-title { font-size: 1.4rem; margin-bottom: 20px; color: #2c3e50; border-bottom: 3px solid #C0392B; padding-bottom: 10px; }
+        body { 
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: #f8f9fa;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
         
-        .quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
-        .action-btn { background: linear-gradient(45deg, #C0392B, #E74C3C); color: white; padding: 20px; border-radius: 8px; text-decoration: none; text-align: center; font-weight: 600; transition: all 0.3s; }
-        .action-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(192,57,43,0.3); color: white; }
+        .header {
+            background: linear-gradient(135deg, #ee8170ff 0%, #f40b0bff 100%);
+            color: white;
+            padding: 1rem 0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            margin-bottom: 2rem;
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 1.5rem;
+        }
+        
+        .logo h1 { 
+            color: white; 
+            font-size: 1.8rem; 
+            font-weight: 300;
+            letter-spacing: -1px;
+        }
+        .logo .red { color: #ffeb3b; font-weight: 700; }
+        
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .nav-links a {
+            color: rgba(255,255,255,0.9);
+            text-decoration: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 20px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .nav-links a:hover, .nav-links a.active {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        
+        .user-info {
+            color: rgba(255,255,255,0.9);
+            font-size: 0.9rem;
+        }
+        
+        .btn-logout {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border-radius: 20px;
+            text-decoration: none;
+            margin-left: 1rem;
+            font-weight: 600;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+        
+        .welcome {
+            background: white;
+            padding: 3rem;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+            margin-bottom: 3rem;
+            text-align: center;
+        }
+        
+        .quick-menu {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+        
+        .menu-card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+            text-align: center;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .menu-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        .menu-card a {
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        
+        .menu-card .icon {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+        
+        .menu-card h3 {
+            margin-bottom: 0.8rem;
+            color: #2c3e50;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        
+        .menu-card p {
+            color: #7f8c8d;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
 
-<?php include __DIR__ . '/../layouts/headers.php'; ?>
+<?php
+session_start();
+if (!isset($_SESSION['usuario'])) {
+    header("Location: ../public/index.php?erro=nao_logado");
+    exit;
+}
+?>
 
-<div class="dashboard">
-    <h1>📊 Dashboard</h1>
-    
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-number"><?= $estatisticas['total'] ?? 0 ?></div>
-            <div class="stat-label">Total de Pontos</div>
+<div class="header">
+    <div class="header-content">
+        <div class="logo">
+            <h1>impa<span class="red">k</span>to</h1>
         </div>
         
-        <div class="stat-card disponivel">
-            <div class="stat-number"><?= $estatisticas['disponiveis'] ?? 0 ?></div>
-            <div class="stat-label">Disponíveis</div>
+        <div class="nav-links">
+            <a href="index.php" class="active">
+                <span style="margin-right: 8px;">🏠</span>Dashboard
+            </a>
+            <a href="../app/Views/gestor/listar_ponto.php">
+                <span style="margin-right: 8px;">📋</span>Lista de Pontos
+            </a>
+            <a href="../app/Views/gestor/relatorios/pre_selecao.php">
+                <span style="margin-right: 8px;">📊</span>Pré-Seleção
+            </a>
         </div>
         
-        <div class="stat-card ocupado">
-            <div class="stat-number"><?= $estatisticas['ocupados'] ?? 0 ?></div>
-            <div class="stat-label">Ocupados</div>
-        </div>
-        
-        <div class="stat-card reservado">
-            <div class="stat-number"><?= $estatisticas['reservados'] ?? 0 ?></div>
-            <div class="stat-label">Reservados</div>
+        <div class="user-info">
+            Olá, <strong><?= htmlspecialchars($_SESSION['usuario']) ?></strong>
+            <a href="../public/index.php?logout=1" class="btn-logout">Sair</a>
         </div>
     </div>
-    
-    <div class="quick-actions">
-        <a href="?page=pontos" class="action-btn">📋 Ver Todos os Pontos</a>
-        <a href="?page=pre_selecao" class="action-btn">📊 Fazer Pré-Seleção</a>
-        <a href="?page=pontos&situacao=Disponível" class="action-btn">✅ Pontos Disponíveis</a>
-        <a href="?page=pontos&vencimento_proximo=1" class="action-btn">⚠️ Próximos Vencimentos</a>
-    </div>
-    
-    <?php if (!empty($proximosVencimento)): ?>
-    <div class="recent-section">
-        <h2 class="section-title">⚠️ Contratos Próximos ao Vencimento</h2>
-        <div class="table-responsive">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Ponto</th>
-                        <th>Cliente</th>
-                        <th>Cidade</th>
-                        <th>Vencimento</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($proximosVencimento as $ponto): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($ponto['numero'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($ponto['cliente'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($ponto['cidade'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($ponto['fim_contrato'] ?? '') ?></td>
-                        <td>
-                            <a href="?page=ponto&id=<?= $ponto['id'] ?>" target="_blank">Ver Detalhes</a>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    <?php endif; ?>
 </div>
 
-<?php include __DIR__ . '/../layouts/footer.php'; ?>
+<div class="container">
+    <div class="welcome">
+        <h2>🎯 Dashboard - Sistema de Gestão</h2>
+        <p>Bem-vindo ao painel de controle. Gerencie seus pontos de mídia com eficiência.</p>
+    </div>
+    
+    <div class="quick-menu">
+        <div class="menu-card">
+            <a href="../app/Views/gestor/listar_ponto.php">
+                <div class="icon">📋</div>
+                <h3>Lista de Pontos</h3>
+                <p>Visualizar e gerenciar todos os pontos cadastrados com filtros avançados</p>
+            </a>
+        </div>
+        
+        <div class="menu-card">
+            <a href="../app/Views/gestor/relatorios/pre_selecao.php">
+                <div class="icon">📊</div>
+                <h3>Pré-Seleção</h3>
+                <p>Fazer pré-seleção de pontos através da numeração específica</p>
+            </a>
+        </div>
+        
+        <div class="menu-card" style="opacity: 0.6;">
+            <div class="icon">📈</div>
+            <h3>Relatórios</h3>
+            <p>Relatórios avançados e estatísticas (em desenvolvimento)</p>
+        </div>
+        
+        <div class="menu-card" style="opacity: 0.6;">
+            <div class="icon">⚙️</div>
+            <h3>Configurações</h3>
+            <p>Configurações do sistema (em desenvolvimento)</p>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>

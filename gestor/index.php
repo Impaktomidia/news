@@ -1,6 +1,6 @@
 <?php
 // ============================================
-// gestor/index.php - VERSÃO COMPLETA E CORRIGIDA
+// gestor/index.php - VERSÃO COMPLETA CORRIGIDA
 // ============================================
 
 session_start();
@@ -12,28 +12,16 @@ if (isset($_GET['logout']) && $_GET['logout'] == '1') {
         error_log("Logout realizado para usuário: {$_SESSION['usuario']}");
     }
     
-    // Limpar sessão completamente
-    $_SESSION = [];
-    
-    // Deletar cookie da sessão
-    if (ini_get("session.use_cookies")) {
-        $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000,
-            $params["path"], $params["domain"],
-            $params["secure"], $params["httponly"]
-        );
-    }
-    
-    session_destroy();
-    
-    // Redirecionar para login com mensagem
-    header("Location: ../public/index.php?mensagem=logout_sucesso");
+    // Processar logout - VERSÃO CORRIGIDA
+if (isset($_GET['logout']) && $_GET['logout'] == '1') {
+    // Redirecionar para o script de logout dedicado
+    header("Location: /impaktonew/logout.php");
     exit;
 }
 
 // Verificar autenticação
 if (!isset($_SESSION['usuario'])) {
-    header("Location: ../public/index.php?erro=nao_logado");
+    header("Location: /impaktonew/public/index.php?erro=nao_logado");
     exit;
 }
 
@@ -48,7 +36,7 @@ $paginaAtual = $_GET['page'] ?? 'dashboard';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel Gestor - Impakto Mídia</title>
+    <title>Dashboard - Impakto Mídia</title>
     <style>
         * { 
             margin: 0; 
@@ -499,29 +487,25 @@ $paginaAtual = $_GET['page'] ?? 'dashboard';
     <div class="header-content">
         <div class="logo">
             <?php 
-            $logoPath = '../public/assets/img/logo.png';
-            if (file_exists($logoPath)): 
+            $logoPath = '/impaktonew/public/assets/img/logo.png';
             ?>
-                <img src="<?= $logoPath ?>" alt="Impakto Mídia">
-            <?php else: ?>
-                <h1>
-                    impa<span class="red">k</span>to
-                </h1>
-                <span class="subtitle">mídia OOH</span>
-            <?php endif; ?>
+            <h1>
+                impa<span class="red">k</span>to
+            </h1>
+            <span class="subtitle">mídia OOH</span>
         </div>
         
         <!-- Menu de navegação -->
         <nav class="main-nav">
-            <a href="index.php" class="nav-link <?= $paginaAtual === 'dashboard' ? 'active' : '' ?>">
+            <a href="/impaktonew/gestor/index.php" class="nav-link <?= $paginaAtual === 'dashboard' ? 'active' : '' ?>">
                 <span class="nav-icon">🏠</span>
                 Dashboard
             </a>
-            <a href="../app/Views/gestor/listar_ponto.php" class="nav-link">
+            <a href="/impaktonew/app/Views/gestor/listar_ponto.php" class="nav-link">
                 <span class="nav-icon">📋</span>
                 Pontos
             </a>
-            <a href="../app/Views/gestor/relatorios/pre_selecao.php" class="nav-link">
+            <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php" class="nav-link">
                 <span class="nav-icon">📊</span>
                 Pré-Seleção
             </a>
@@ -531,7 +515,7 @@ $paginaAtual = $_GET['page'] ?? 'dashboard';
             <span class="welcome-text">
                 👋 Bem-vindo, <strong><?= htmlspecialchars($_SESSION['usuario']) ?></strong>
             </span>
-            <a href="?logout=1" class="btn-logout" onclick="return confirm('Tem certeza que deseja sair?')">
+            <a href="/impaktonew/logout.php" class="btn-logout" onclick="return confirm('Tem certeza que deseja sair?')">
                 <span class="logout-icon">🚪</span>
                 Sair
             </a>
@@ -554,7 +538,7 @@ $paginaAtual = $_GET['page'] ?? 'dashboard';
     
     <div class="quick-menu">
         <div class="menu-card">
-            <a href="../app/Views/gestor/listar_ponto.php">
+            <a href="/impaktonew/app/Views/gestor/listar_ponto.php">
                 <div class="icon">📋</div>
                 <h3>Lista de Pontos</h3>
                 <p>Visualizar e gerenciar todos os pontos cadastrados no sistema com filtros avançados</p>
@@ -562,7 +546,7 @@ $paginaAtual = $_GET['page'] ?? 'dashboard';
         </div>
         
         <div class="menu-card">
-            <a href="../app/Views/gestor/relatorios/pre_selecao.php">
+            <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php">
                 <div class="icon">📊</div>
                 <h3>Pré-Seleção</h3>
                 <p>Fazer pré-seleção de pontos através da numeração específica e gerar relatórios</p>
@@ -644,12 +628,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Função para atualizar o status da sessão
 function checkSession() {
-    fetch('check_session.php')
+    fetch('/impaktonew/check_session.php')
         .then(response => response.json())
         .then(data => {
             if (!data.logged_in) {
                 alert('Sua sessão expirou. Você será redirecionado para a página de login.');
-                window.location.href = '../public/index.php?mensagem=sessao_expirada';
+                window.location.href = '/impaktonew/public/index.php?mensagem=sessao_expirada';
             }
         })
         .catch(error => {

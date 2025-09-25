@@ -474,15 +474,16 @@ function badgeSituacao($situacao) {
             <h1>impa<span class="red">k</span>to</h1>
         </div>
         
-        <div class="nav-links">
-            <a href="../../gestor/">Dashboard</a>
-            <a href="#" class="active">Lista de Pontos</a>
-            <a href="../relatorios/pre_selecao.php">Pré-Seleção</a>
-        </div>
+   <div class="nav-links">
+    <a href="/impaktonew/gestor/index.php">Dashboard</a>
+    <a href="#" class="active">Lista de Pontos</a>
+    <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php">Pré-Seleção</a>
+    </div>
+
         
         <div class="user-info">
             Olá, <strong><?= htmlspecialchars($_SESSION['usuario']) ?></strong>
-            <a href="../../public/index.php?logout=1" class="btn-logout">Sair</a>
+            <a href="/impaktonew/logout.php" class="btn-logout">Sair</a>
         </div>
     </div>
 </div>
