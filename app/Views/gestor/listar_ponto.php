@@ -72,16 +72,36 @@ $totalPaginas = ceil($total / $itensPorPagina);
 // Buscar pontos
 $sql = "SELECT numero, logradouro, descricao, cidade, regiao, cliente, agencia, tipo, situacao,
                CASE 
-                 WHEN fim_contrato IS NULL OR fim_contrato = '0000-00-00' OR fim_contrato = '' THEN NULL
-                 ELSE fim_contrato 
+                 WHEN fim_contrato IS NULL OR fim_contrato = '0000-00-00' OR fim_contrato = '' 
+                 THEN NULL
+                 ELSE DATE(fim_contrato)
                END as fim_contrato_clean
         FROM pontos $whereSql 
-        ORDER BY numero ASC 
+        ORDER BY 
+            CASE WHEN numero REGEXP '^[0-9]+$' THEN CAST(numero AS UNSIGNED) ELSE 999999 END,
+            numero ASC 
         LIMIT $itensPorPagina OFFSET $offset";
 
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$pontos = $stmt->fetchAll();
+try {
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $pontos = $stmt->fetchAll();
+} catch (PDOException $e) {
+    // Log do erro para debug
+    error_log("Erro na consulta de pontos: " . $e->getMessage());
+    
+    // Fallback: buscar sem formatação de data
+    $sqlFallback = "SELECT numero, logradouro, descricao, cidade, regiao, cliente, agencia, tipo, situacao,
+                           fim_contrato as fim_contrato_clean
+                    FROM pontos $whereSql 
+                    ORDER BY numero ASC 
+                    LIMIT $itensPorPagina OFFSET $offset";
+    
+    $stmt = $pdo->prepare($sqlFallback);
+    $stmt->execute($params);
+    $pontos = $stmt->fetchAll();
+}
+
 
 // Funções auxiliares seguras
 function formatarData($data) {
