@@ -1,20 +1,17 @@
 <?php
-// ============================================
-// SUBSTITUA COMPLETAMENTE O public/index.php
-// VERSÃO COM DEBUG COMPLETO
-// ============================================
-
 session_start();
 
 // Verificar se já está logado
 if (isset($_SESSION['usuario'])) {
-    header("Location: gestor/");
+    header("Location: /impaktonew/gestor/");
     exit;
 }
 
+// INICIALIZAR VARIÁVEIS
 $erro = false;
 $debug_info = [];
 
+// PROCESSAR LOGIN
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $usuario = trim($_POST['usuario'] ?? '');
     $senha = $_POST['senha'] ?? '';
@@ -23,27 +20,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $erro = "Usuário e senha são obrigatórios";
     } else {
         try {
-            $pdo = new PDO(
-                "mysql:host= localhost;dbname=ipk2024;charset=utf8",
-                "root",
-                "",
-                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-            );
-
+            require_once __DIR__ . '/../config/database.php';
+            $pdo = getDatabase();
             
-            $sql = "SELECT id, usuario, senha, ativo FROM admins WHERE usuario = ? LIMIT 1";
+            // Usar SELECT * para evitar problemas com colunas
+            $sql = "SELECT * FROM admins WHERE usuario = ? LIMIT 1";
             $stmt = $pdo->prepare($sql);
             $stmt->execute([$usuario]);
             $user = $stmt->fetch();
             
-            if ($user && $user['ativo'] && password_verify($senha, $user['senha'])) {
-                // Login bem-sucedido - CORRIGIDO
+            // Verificar ativo (se coluna existir)
+            $isAtivo = !isset($user['ativo']) || $user['ativo'] == 1 || $user['ativo'] === '1';
+            
+            if ($user && $isAtivo && password_verify($senha, $user['senha'])) {
                 session_regenerate_id(true);
                 $_SESSION['usuario'] = $user['usuario'];
                 $_SESSION['usuario_id'] = $user['id'];
                 
-                // CORREÇÃO: Remover ../ do redirecionamento
-                header("Location: gestor/?logado=1");
+                header("Location: /impaktonew/gestor/?logado=1");
                 exit;
             } else {
                 $erro = "Usuário ou senha incorretos";
@@ -51,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
         } catch (Exception $e) {
             $erro = "Erro de conexão: " . $e->getMessage();
+            $debug_info['erro'] = $e->getMessage();
         }
     }
 }
@@ -191,27 +186,15 @@ if (!isset($_SESSION['csrf_token'])) {
             gap: 10px;
         }
         
-        .debug-info {
-            margin-top: 2rem;
-            padding: 20px;
-            background: rgba(255, 193, 7, 0.1);
-            border: 1px solid rgba(255, 193, 7, 0.2);
+        .connection-info {
+            margin-top: 1rem;
+            padding: 15px;
+            background: rgba(46, 204, 113, 0.1);
+            border: 1px solid rgba(46, 204, 113, 0.2);
             border-radius: 12px;
             font-size: 12px;
-            color: #856404;
+            color: #27ae60;
             text-align: left;
-        }
-        
-        .debug-info h4 {
-            color: #856404;
-            margin-bottom: 10px;
-        }
-        
-        .debug-info pre {
-            background: rgba(0,0,0,0.1);
-            padding: 10px;
-            border-radius: 6px;
-            overflow-x: auto;
         }
         
         .test-info {
@@ -226,6 +209,17 @@ if (!isset($_SESSION['csrf_token'])) {
         
         .test-info strong {
             color: #1abc9c;
+        }
+        
+        .debug-info {
+            margin-top: 2rem;
+            padding: 20px;
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.2);
+            border-radius: 12px;
+            font-size: 12px;
+            color: #856404;
+            text-align: left;
         }
         
         @keyframes fadeInUp {
@@ -243,7 +237,6 @@ if (!isset($_SESSION['csrf_token'])) {
             animation: fadeInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
-        /* Responsivo */
         @media (max-width: 480px) {
             .login-container {
                 width: 95%;
@@ -294,6 +287,12 @@ if (!isset($_SESSION['csrf_token'])) {
         <button type="submit">Entrar no Sistema</button>
     </form>
     
+    <div class="connection-info">
+        <strong>🌐 Conexão:</strong> Servidor Remoto<br>
+        <strong>🗄️ Host:</strong> ipk2024.mysql.uhserver.com<br>
+        <strong>📊 Database:</strong> ipk2024
+    </div>
+    
     <div class="test-info">
         <div style="margin-bottom: 10px;">
             <strong>🧪 Dados para Teste:</strong>
@@ -304,13 +303,11 @@ if (!isset($_SESSION['csrf_token'])) {
     
     <?php if (!empty($debug_info)): ?>
     <div class="debug-info">
-        <h4>🔍 Informações de Debug:</h4>
-        <pre><?= print_r($debug_info, true) ?></pre>
+        <h4>🔍 Debug:</h4>
+        <pre><?= htmlspecialchars(print_r($debug_info, true)) ?></pre>
     </div>
     <?php endif; ?>
 </div>
 
 </body>
 </html>
-
-<?php

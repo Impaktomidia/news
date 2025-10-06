@@ -6,21 +6,13 @@ if (!isset($_SESSION['usuario'])) {
     exit;
 }
 
-// ============================================
-// LÓGICA CORRIGIDA: Define a página atual
-// ============================================
-// Em listar_ponto.php, a página ativa é sempre 'pontos'.
-$paginaAtual = 'pontos'; 
-// A lógica para outras páginas está no gestor/index.php, mas aqui definimos o contexto.
-// ============================================
+$paginaAtual = 'pontos';
 
-
-// Configuração do banco
+// Conectar ao banco
 try {
-    $pdo = new PDO("mysql:host=localhost;dbname=ipk2024;charset=utf8", "root", "");
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->exec("SET sql_mode = ''"); // Modo permissivo
-} catch (PDOException $e) {
+    require_once __DIR__ . '/../../../config/database.php';
+    $pdo = getDatabase();
+} catch (Exception $e) {
     die("Erro na conexão: " . $e->getMessage());
 }
 
@@ -33,9 +25,7 @@ $cliente = $_GET['cliente'] ?? '';
 $pagina = (int)($_GET['pagina'] ?? 1);
 $itensPorPagina = 5;
 $offset = ($pagina - 1) * $itensPorPagina;
-
-// NOVO: Filtro de status (ativo/inativo)
-$status = $_GET['status'] ?? 'ativo'; // Por padrão mostra apenas ativos
+$status = $_GET['status'] ?? 'ativo';
 
 // Buscar clientes para filtro
 $sqlClientes = "SELECT DISTINCT cliente FROM pontos WHERE cliente IS NOT NULL AND cliente != '' ORDER BY cliente";
@@ -44,13 +34,11 @@ $stmtClientes->execute();
 $clientes = $stmtClientes->fetchAll(PDO::FETCH_COLUMN);
 
 // Construir filtros
-// Construir filtros
 $where = [];
 $params = [];
 
-// NOVO: Filtro de status ativo/inativo
 if ($status === 'ativo') {
-    $where[] = "(ativo = 1 OR ativo IS NULL)"; // Considera NULL como ativo para compatibilidade
+    $where[] = "(ativo = 1 OR ativo IS NULL)";
 } elseif ($status === 'inativo') {
     $where[] = "ativo = 0";
 }
@@ -107,23 +95,19 @@ try {
     $stmt->execute($params);
     $pontos = $stmt->fetchAll();
 } catch (PDOException $e) {
-    // Log do erro para debug
     error_log("Erro na consulta de pontos: " . $e->getMessage());
     
-    // Fallback: buscar sem formatação de data
     $sqlFallback = "SELECT numero, logradouro, descricao, cidade, regiao, cliente, agencia, tipo, situacao,
-                             fim_contrato as fim_contrato_clean
-                       FROM pontos $whereSql 
-                       ORDER BY numero ASC 
-                       LIMIT $itensPorPagina OFFSET $offset";
+                           fim_contrato as fim_contrato_clean
+                      FROM pontos $whereSql 
+                      ORDER BY numero ASC 
+                      LIMIT $itensPorPagina OFFSET $offset";
     
     $stmt = $pdo->prepare($sqlFallback);
     $stmt->execute($params);
     $pontos = $stmt->fetchAll();
 }
 
-
-// Função formatarData atualizada
 function formatarData($data) {
     if (!$data || $data === '0000-00-00') {
         return '<span>-</span>';
@@ -163,8 +147,6 @@ function calcularStatus($data) {
     }
 }
 
-
-
 function badgeSituacao($situacao) {
     $cores = [
         'Disponível' => ['bg' => '#198754', 'text' => 'white'],
@@ -175,11 +157,9 @@ function badgeSituacao($situacao) {
     ];
     
     $cor = $cores[$situacao] ?? ['bg' => '#6c757d', 'text' => 'white'];
-    // Usando estilos inline aqui, mas idealmente seria classes CSS
     return "<span style='background: {$cor['bg']}; color: {$cor['text']}; padding: 4px 10px; border-radius: 15px; font-size: 0.8rem; font-weight: 500;'>$situacao</span>";
 }
 
-// Adicione esta função para traduzir meses
 function traduzirMes($mes) {
     $meses = [
         'Jan' => 'Jan', 'Feb' => 'Fev', 'Mar' => 'Mar', 'Apr' => 'Abr',
@@ -188,12 +168,9 @@ function traduzirMes($mes) {
     ];
     return $meses[$mes] ?? $mes;
 }
-
-
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -202,10 +179,8 @@ function traduzirMes($mes) {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet"> 
     <link rel="stylesheet" href="/impaktonew/public/assets/css/gestor.css"> 
- 
-  <title>Lista de Pontos - Impakto Mídia</title>
+    <title>Lista de Pontos - Impakto Mídia</title>
 </head>
-   
 <body>
 
 <div class="header">
@@ -214,43 +189,28 @@ function traduzirMes($mes) {
             <img src="/impaktonew/public/assets/img/logo.png" alt="Impakto Mídia" class="logo-img">
         </div>
 
-       <form method="get" class="busca-row">
-    <span class="busca-icon">🔍</span>
-    <input type="text" name="busca" class="busca-input" 
-            placeholder="Buscar por número, logradouro, cliente ou descrição..." 
-            value="<?= htmlspecialchars($busca) ?>">
-</form>
+        <form method="get" class="busca-row">
+            <span class="busca-icon">🔍</span>
+            <input type="text" name="busca" class="busca-input" 
+                   placeholder="Buscar por número, logradouro, cliente ou descrição..." 
+                   value="<?= htmlspecialchars($busca) ?>">
+        </form>
         
         <nav class="main-nav">
-            <a href="/impaktonew/gestor/index.php" class="nav-link <?= $paginaAtual === 'dashboard' ? 'active' : '' ?>">
-                Dashboard
-            </a>
-            
-            <a href="/impaktonew/app/Views/gestor/listar_ponto.php" class="nav-link <?= $paginaAtual === 'pontos' ? 'active' : '' ?>">
-                Pontos
-            </a>
-            
-            <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php" class="nav-link <?= $paginaAtual === 'pre_selecao' ? 'active' : '' ?>">
-                Pré-Seleção
-            </a>
-            
-            <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php" class="nav-link <?= $paginaAtual === 'relatorios' ? 'active' : '' ?>">
-                Relatórios
-            </a>
+            <a href="/impaktonew/gestor/index.php" class="nav-link">Dashboard</a>
+            <a href="/impaktonew/app/Views/gestor/listar_ponto.php" class="nav-link active">Pontos</a>
+            <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php" class="nav-link">Pré-Seleção</a>
+            <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php" class="nav-link">Relatórios</a>
         </nav>
         
         <div class="user-info">
-        
-            <a href="?logout=1" class="btn-logout" onclick="return confirm('Tem certeza que deseja sair?')">
-                Sair
-            </a>
+            <a href="?logout=1" class="btn-logout" onclick="return confirm('Tem certeza que deseja sair?')">Sair</a>
         </div>
     </div>
 </div>
 
 <div class="container">
     <div class="controls">       
-        
         <form method="get" class="filtros-grid">
             <input type="hidden" name="busca" value="<?= htmlspecialchars($busca) ?>">
             
@@ -397,21 +357,19 @@ function traduzirMes($mes) {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-focus na busca
     const buscaInput = document.querySelector('.busca-input');
     if (buscaInput && !buscaInput.value) {
         buscaInput.focus();
     }
     
-    // Loading nos selects
     const selects = document.querySelectorAll('select[onchange]');
     selects.forEach(select => {
-        select.addEventListener('change', function() {
+        select.addEventListener('
+        change', function() {
             document.body.classList.add('loading');
         });
     });
     
-    // Remover loading após carregar
     window.addEventListener('pageshow', function() {
         document.body.classList.remove('loading');
     });

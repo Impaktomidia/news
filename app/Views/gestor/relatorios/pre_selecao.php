@@ -1,6 +1,4 @@
 <?php
-// SUBSTITUIR COMPLETAMENTE o arquivo: app/Views/gestor/relatorios/pre_selecao.php
-
 session_start();
 
 // Verificar se usuário está logado
@@ -9,25 +7,21 @@ if (!isset($_SESSION['usuario'])) {
     exit;
 }
 
-// ============================================
-// LÓGICA CORRIGIDA: Define a página atual
-// ============================================
-$paginaAtual = 'pre_selecao'; 
-// ============================================
-
+$paginaAtual = 'pre_selecao';
 
 // Gerar token CSRF se não existir
 if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// Processar formulário se for POST
+// INICIALIZAR VARIÁVEIS
 $erro = '';
 $sucesso = '';
 $pontos_encontrados = [];
 
+// PROCESSAR FORMULÁRIO
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // CSRF Token Check (Adicionado para segurança)
+    // CSRF Token Check
     if (!hash_equals($_SESSION['csrf_token'], $_POST['_token'] ?? '')) {
         die("Erro de segurança: Token CSRF inválido.");
     }
@@ -43,27 +37,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         // Processar numeração
         $numeros = array_map('trim', explode(',', $numeracao));
-        $numeros = array_filter($numeros); // Remove vazios
-        $numeros = array_slice($numeros, 0, 100); // Máximo 100
+        $numeros = array_filter($numeros);
+        $numeros = array_slice($numeros, 0, 100);
         
         if (empty($numeros)) {
             $erro = "Nenhum número válido foi informado";
         } else {
-            // Conectar ao banco
             try {
-                $pdo = new PDO("mysql:host=localhost;dbname=ipk2024;charset=utf8", "root", "");
-                $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                // Conectar ao banco remoto
+                require_once __DIR__ . '/../../../../config/database.php';
+                $pdo = getDatabase();
                 
                 // Buscar pontos
                 $placeholders = implode(',', array_fill(0, count($numeros), '?'));
                 $sql = "SELECT numero, logradouro, descricao, cidade, regiao, tipo, situacao, 
-                                 cliente, agencia, inicio_contrato, fim_contrato
-                            FROM pontos 
-                            WHERE numero IN ($placeholders)
-                            ORDER BY FIELD(numero, " . implode(',', array_fill(0, count($numeros), '?')) . ")";
+                               cliente, agencia, inicio_contrato, fim_contrato
+                        FROM pontos 
+                        WHERE numero IN ($placeholders)
+                        ORDER BY FIELD(numero, " . implode(',', array_fill(0, count($numeros), '?')) . ")";
                 
                 $stmt = $pdo->prepare($sql);
-                // Bind os números duas vezes (para IN e para ORDER BY FIELD)
                 $params = array_merge($numeros, $numeros);
                 $stmt->execute($params);
                 $pontos_encontrados = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -173,7 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="form-group">
                 <label for="numeracao">Numeração dos Pontos *</label>
                 <textarea name="numeracao" id="numeracao" rows="5" required maxlength="1000"
-                              placeholder="Digite os números separados por vírgula. Ex: 205, 206, 207, 208"><?= htmlspecialchars($_POST['numeracao'] ?? '') ?></textarea>
+                          placeholder="Digite os números separados por vírgula. Ex: 205, 206, 207, 208"><?= htmlspecialchars($_POST['numeracao'] ?? '') ?></textarea>
                 <div class="form-text">
                     Máximo 100 pontos por consulta. Separe os números com vírgula.
                 </div>
@@ -213,13 +206,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <td><strong><?= htmlspecialchars($ponto['numero'] ?? '') ?></strong></td>
                     <td>
                         <div style="font-weight: 600;"><?= htmlspecialchars($ponto['logradouro'] ?? '') ?></div>
-                        <?php if ($ponto['descricao']): ?>
+                        <?php if (!empty($ponto['descricao'])): ?>
                             <small class="text-muted"><?= htmlspecialchars(substr($ponto['descricao'], 0, 50)) ?><?= strlen($ponto['descricao']) > 50 ? '...' : '' ?></small>
                         <?php endif; ?>
                     </td>
                     <td>
                         <div><?= htmlspecialchars($ponto['cidade'] ?? '') ?></div>
-                        <?php if ($ponto['regiao']): ?>
+                        <?php if (!empty($ponto['regiao'])): ?>
                             <small class="text-muted"><?= htmlspecialchars($ponto['regiao']) ?></small>
                         <?php endif; ?>
                     </td>
@@ -233,7 +226,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </td>
                     <td>
                         <div><?= htmlspecialchars($ponto['cliente'] ?? '-') ?></div>
-                        <?php if ($ponto['agencia']): ?>
+                        <?php if (!empty($ponto['agencia'])): ?>
                             <small class="text-muted"><?= htmlspecialchars($ponto['agencia']) ?></small>
                         <?php endif; ?>
                     </td>
@@ -277,12 +270,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-focus no primeiro campo
     document.getElementById('cliente').focus();
 });
 
 function exportToCSV() {
-    // Código CSV... (mantido)
     const table = document.querySelector('.table');
     if (!table) return;
     
@@ -308,7 +299,6 @@ function exportToCSV() {
 }
 
 function copyToClipboard() {
-    // Código Copy... (mantido)
     const pontos = document.querySelectorAll('.table tbody tr');
     let texto = 'PONTOS SELECIONADOS:\n\n';
     

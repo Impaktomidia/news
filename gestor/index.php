@@ -1,22 +1,13 @@
 <?php
-// ============================================
-// gestor/index.php - VERSÃO FINAL CORRIGIDA
-// Substitua COMPLETAMENTE o arquivo existente
-// ============================================
-
 session_start();
 
-// LÓGICA DE LOGOUT ÚNICA E CORRETA
 if (isset($_GET['logout']) && $_GET['logout'] == '1') {
-    // Log do logout
     if (isset($_SESSION['usuario'])) {
         error_log("Logout realizado para usuário: {$_SESSION['usuario']}");
     }
     
-    // Limpar sessão completamente
     $_SESSION = [];
     
-    // Deletar cookie da sessão
     if (ini_get("session.use_cookies")) {
         $params = session_get_cookie_params();
         setcookie(session_name(), '', time() - 42000,
@@ -27,21 +18,16 @@ if (isset($_GET['logout']) && $_GET['logout'] == '1') {
     
     session_destroy();
     
-    // Redirecionar para login com mensagem
     header("Location: /impaktonew/public/index.php?mensagem=logout_sucesso");
     exit;
 }
 
-// Verificar autenticação
 if (!isset($_SESSION['usuario'])) {
     header("Location: /impaktonew/public/index.php?erro=nao_logado");
     exit;
 }
 
-// Verificar se o login foi bem-sucedido
 $loginSucesso = isset($_GET['logado']) && $_GET['logado'] == '1';
-
-// Obter página atual para navegação ativa
 $paginaAtual = $_GET['page'] ?? 'dashboard';
 ?>
 <!DOCTYPE html>
@@ -54,8 +40,7 @@ $paginaAtual = $_GET['page'] ?? 'dashboard';
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">    
     <link rel="stylesheet" href="/impaktonew/public/assets/css/gestor.css"> 
-  
-  <title>Dashboard - Impakto Mídia</title>
+    <title>Dashboard - Impakto Mídia</title>
 </head>
 <body>
 
@@ -63,28 +48,18 @@ $paginaAtual = $_GET['page'] ?? 'dashboard';
     <div class="header-content">
         <div class="logo">
             <img src="/impaktonew/public/assets/img/logo.png" alt="Impakto Mídia" class="logo-img">
-            </div>
+        </div>
         
         <nav class="main-nav">
-    <a href="/impaktonew/gestor/index.php" class="nav-link <?= $paginaAtual === 'dashboard' ? 'active' : '' ?>">
-        Dashboard
-    </a>
-    <a href="/impaktonew/app/Views/gestor/listar_ponto.php" class="nav-link <?= $paginaAtual === 'pontos' ? 'active' : '' ?>">
-        Pontos
-    </a>
-    <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php" class="nav-link <?= $paginaAtual === 'pre_selecao' ? 'active' : '' ?>">
-        Pré-Seleção
-    </a>
-    <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php" class="nav-link <?= $paginaAtual === 'relatorios' ? 'active' : '' ?>">
-        Relatórios
-    </a>
-    <a href="#" class="nav-link disabled" title="Em desenvolvimento">
-        Google Maps
-    </a>
-</nav>
+            <a href="/impaktonew/gestor/index.php" class="nav-link active">Dashboard</a>
+            <a href="/impaktonew/app/Views/gestor/listar_ponto.php" class="nav-link">Pontos</a>
+            <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php" class="nav-link">Pré-Seleção</a>
+            <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php" class="nav-link">Relatórios</a>
+            <a href="#" class="nav-link disabled" title="Em desenvolvimento">Google Maps</a>
+        </nav>
         
         <div class="user-info">      
-                                  <a href="?logout=1" class="btn-logout" onclick="return confirm('Tem certeza que deseja sair?')">
+            <a href="?logout=1" class="btn-logout" onclick="return confirm('Tem certeza que deseja sair?')">
                 <span class="logout-icon">🚪</span>
                 Sair
             </a>
@@ -105,37 +80,35 @@ $paginaAtual = $_GET['page'] ?? 'dashboard';
         <p>Gerencie seus pontos de mídia exterior com eficiência e precisão. Acesse as funcionalidades através dos cards abaixo.</p>
     </div>
     
-   <div class="quick-menu">
-    <div class="menu-card">
-        <a href="/impaktonew/app/Views/gestor/listar_ponto.php">
-            <div class="icon"></div> 
-            <h3>Lista de Pontos</h3>
-        </a>
-    </div>
-    
-    <div class="menu-card">
-        <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php">
-            <div class="icon"></div> 
-            <h3>Pré-Seleção</h3>
-        </a>
-    </div>
-    
-    <div class="menu-card" title="Em desenvolvimento">
-        <div class="icon"></div>
-        <h3>Relatórios</h3>
-    </div>
-    
-    <div class="menu-card" title="Em desenvolvimento">
-        <div class="icon"></div>
-        <h3>Google Maps</h3>
+    <div class="quick-menu">
+        <div class="menu-card">
+            <a href="/impaktonew/app/Views/gestor/listar_ponto.php">
+                <div class="icon"></div> 
+                <h3>Lista de Pontos</h3>
+            </a>
+        </div>
+        
+        <div class="menu-card">
+            <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php">
+                <div class="icon"></div> 
+                <h3>Pré-Seleção</h3>
+            </a>
+        </div>
+        
+        <div class="menu-card disabled" title="Em desenvolvimento">
+            <div class="icon"></div>
+            <h3>Relatórios</h3>
+        </div>
+        
+        <div class="menu-card disabled" title="Em desenvolvimento">
+            <div class="icon"></div>
+            <h3>Google Maps</h3>
+        </div>
     </div>
 </div>
 
 <script>
-// ========== JAVASCRIPT MELHORADO ==========
-
 document.addEventListener('DOMContentLoaded', function() {
-    // Remover parâmetro logado da URL após mostrar a mensagem
     if (window.location.search.includes('logado=1')) {
         setTimeout(() => {
             const url = new URL(window.location);
@@ -144,7 +117,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 3000);
     }
     
-    // Adicionar efeitos de hover nos cards
     const menuCards = document.querySelectorAll('.menu-card:not(.disabled)');
     menuCards.forEach(card => {
         card.addEventListener('mouseenter', function() {
@@ -156,11 +128,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Adicionar loading state nos links
     const links = document.querySelectorAll('a[href]:not([href^="#"]):not([href^="javascript:"])');
     links.forEach(link => {
         link.addEventListener('click', function() {
-            // O link de logout é tratado separadamente para não aplicar o loading
             if (!this.href.includes('logout')) { 
                 document.body.classList.add('loading');
             }
