@@ -9,6 +9,13 @@ if (!isset($_SESSION['usuario'])) {
     exit;
 }
 
+// ============================================
+// LÓGICA CORRIGIDA: Define a página atual
+// ============================================
+$paginaAtual = 'pre_selecao'; 
+// ============================================
+
+
 // Gerar token CSRF se não existir
 if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -20,6 +27,11 @@ $sucesso = '';
 $pontos_encontrados = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // CSRF Token Check (Adicionado para segurança)
+    if (!hash_equals($_SESSION['csrf_token'], $_POST['_token'] ?? '')) {
+        die("Erro de segurança: Token CSRF inválido.");
+    }
+    
     $cliente = trim($_POST['cliente'] ?? '');
     $agencia = trim($_POST['agencia'] ?? '');
     $numeracao = trim($_POST['numeracao'] ?? '');
@@ -45,10 +57,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Buscar pontos
                 $placeholders = implode(',', array_fill(0, count($numeros), '?'));
                 $sql = "SELECT numero, logradouro, descricao, cidade, regiao, tipo, situacao, 
-                               cliente, agencia, inicio_contrato, fim_contrato
-                        FROM pontos 
-                        WHERE numero IN ($placeholders)
-                        ORDER BY FIELD(numero, " . implode(',', array_fill(0, count($numeros), '?')) . ")";
+                                 cliente, agencia, inicio_contrato, fim_contrato
+                            FROM pontos 
+                            WHERE numero IN ($placeholders)
+                            ORDER BY FIELD(numero, " . implode(',', array_fill(0, count($numeros), '?')) . ")";
                 
                 $stmt = $pdo->prepare($sql);
                 // Bind os números duas vezes (para IN e para ORDER BY FIELD)
@@ -75,313 +87,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pré-Seleção - Impakto</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body { 
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; 
-            background: #f8f9fa; 
-            line-height: 1.6;
-            color: #495057;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 1rem 0;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        }
-        
-        .header-content {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 2rem;
-        }
-        
-        .logo h1 { 
-            color: white; 
-            font-size: 1.8rem; 
-            font-weight: 300;
-        }
-        .logo .red { color: #ffeb3b; font-weight: 700; }
-        
-        .nav-links {
-            display: flex;
-            gap: 1rem;
-        }
-        
-        .nav-links a {
-            color: rgba(255,255,255,0.9);
-            text-decoration: none;
-            padding: 0.6rem 1.2rem;
-            border-radius: 20px;
-            transition: all 0.3s;
-            font-weight: 500;
-        }
-        
-        .nav-links a:hover, .nav-links a.active {
-            background: rgba(255,255,255,0.2);
-            color: white;
-        }
-        
-        .user-info {
-            color: rgba(255,255,255,0.9);
-            font-size: 0.9rem;
-        }
-        
-        .btn-logout {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            padding: 0.6rem 1.2rem;
-            border-radius: 20px;
-            text-decoration: none;
-            margin-left: 1rem;
-            font-weight: 600;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 2rem;
-        }
-        
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            margin-bottom: 2rem;
-        }
-        
-        .card-header {
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 1rem;
-            margin-bottom: 2rem;
-        }
-        
-        .card-header h2 {
-            color: #2c3e50;
-            font-size: 1.5rem;
-            font-weight: 600;
-        }
-        
-        .alert {
-            padding: 1rem 1.5rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .alert-error {
-            background: #fee;
-            color: #c53030;
-            border: 1px solid #fed7d7;
-        }
-        
-        .alert-success {
-            background: #f0fff4;
-            color: #22543d;
-            border: 1px solid #c6f6d5;
-        }
-        
-        .form-row {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-        
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: #495057;
-        }
-        
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            padding: 0.8rem 1rem;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-        
-        .form-group input:focus,
-        .form-group textarea:focus {
-            border-color: #667eea;
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-        
-        .form-text {
-            font-size: 0.85rem;
-            color: #6c757d;
-            margin-top: 0.25rem;
-        }
-        
-        .btn-group {
-            display: flex;
-            gap: 1rem;
-            margin-top: 2rem;
-        }
-        
-        .btn {
-            padding: 0.8rem 2rem;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: all 0.3s;
-        }
-        
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #5a6fd8;
-            transform: translateY(-1px);
-        }
-        
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-        
-        .btn-outline {
-            background: transparent;
-            color: #667eea;
-            border: 2px solid #667eea;
-        }
-        
-        .btn-outline:hover {
-            background: #667eea;
-            color: white;
-        }
-        
-        /* Tabela de resultados */
-        .table-container {
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            margin-top: 2rem;
-        }
-        
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        .table th {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 1rem;
-            text-align: left;
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-        
-        .table td {
-            padding: 1rem;
-            border-bottom: 1px solid #f1f3f4;
-            font-size: 0.9rem;
-        }
-        
-        .table tbody tr:hover {
-            background: #f8f9fa;
-        }
-        
-        .badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-align: center;
-            display: inline-block;
-        }
-        
-        .badge-disponivel { background: #d4edda; color: #155724; }
-        .badge-ocupado { background: #f8d7da; color: #721c24; }
-        .badge-reservado { background: #fff3cd; color: #856404; }
-        .badge-vencido { background: #e2e3e5; color: #383d41; }
-        
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #6c757d;
-        }
-        
-        .empty-state-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            opacity: 0.5;
-        }
-        
-        @media (max-width: 768px) {
-            .container {
-                padding: 0 1rem;
-            }
-            
-            .header-content {
-                flex-direction: column;
-                gap: 1rem;
-                text-align: center;
-            }
-            
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-            
-            .btn-group {
-                flex-direction: column;
-            }
-            
-            .table-container {
-                overflow-x: auto;
-            }
-        }
-    </style>
+    
+    <link rel="icon" href="/impaktonew/public/img/favicon.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet"> 
+    <link rel="stylesheet" href="/impaktonew/public/assets/css/gestor.css"> 
 </head>
 <body>
 
 <div class="header">
     <div class="header-content">
         <div class="logo">
-            <h1>impa<span class="red">k</span>to</h1>
+            <img src="/impaktonew/public/assets/img/logo.png" alt="Impakto Mídia" class="logo-img">
         </div>
         
-        <div class="nav-links">
-            <a href="/impaktonew/gestor/index.php">Dashboard</a>
-            <a href="/impaktonew/app/Views/gestor/listar_ponto.php">Lista de Pontos</a>
-            <a href="#" class="active">Pré-Seleção</a>
-        </div>
+        <nav class="main-nav">
+            <a href="/impaktonew/gestor/index.php" class="nav-link <?= $paginaAtual === 'dashboard' ? 'active' : '' ?>">
+                Dashboard
+            </a>
+            <a href="/impaktonew/app/Views/gestor/listar_ponto.php" class="nav-link <?= $paginaAtual === 'pontos' ? 'active' : '' ?>">
+                Pontos
+            </a>
+            <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php" class="nav-link <?= $paginaAtual === 'pre_selecao' ? 'active' : '' ?>">
+                Pré-Seleção
+            </a>
+            <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php" class="nav-link <?= $paginaAtual === 'relatorios' ? 'active' : '' ?>">
+                Relatórios
+            </a>
+            <a href="#" class="nav-link disabled" title="Em desenvolvimento">
+                Google Maps
+            </a>
+        </nav>
         
         <div class="user-info">
-            Olá, <strong><?= htmlspecialchars($_SESSION['usuario']) ?></strong>
-            <a href="/impaktonew/logout.php" class="btn-logout">Sair</a>
+            <span class="welcome-text">
+                👋 Bem-vindo, <strong><?= htmlspecialchars($_SESSION['usuario']) ?></strong>
+            </span>
+            <a href="/impaktonew/gestor/index.php?logout=1" class="btn-logout" onclick="return confirm('Tem certeza que deseja sair?')">
+                Sair
+            </a>
         </div>
     </div>
 </div>
@@ -389,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="container">
     <div class="card">
         <div class="card-header">
-            <h2>📊 Pré-Seleção de Pontos</h2>
+            <h2>Pré-Seleção de Pontos</h2>
         </div>
         
         <?php if ($erro): ?>
@@ -413,22 +158,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-group">
                     <label for="cliente">Cliente *</label>
                     <input type="text" name="cliente" id="cliente" required maxlength="100"
-                           value="<?= htmlspecialchars($_POST['cliente'] ?? '') ?>"
-                           placeholder="Nome do cliente">
+                            value="<?= htmlspecialchars($_POST['cliente'] ?? '') ?>"
+                            placeholder="Nome do cliente">
                 </div>
                 
                 <div class="form-group">
                     <label for="agencia">Agência</label>
                     <input type="text" name="agencia" id="agencia" maxlength="100"
-                           value="<?= htmlspecialchars($_POST['agencia'] ?? '') ?>"
-                           placeholder="Nome da agência (opcional)">
+                            value="<?= htmlspecialchars($_POST['agencia'] ?? '') ?>"
+                            placeholder="Nome da agência (opcional)">
                 </div>
             </div>
             
             <div class="form-group">
                 <label for="numeracao">Numeração dos Pontos *</label>
                 <textarea name="numeracao" id="numeracao" rows="5" required maxlength="1000"
-                          placeholder="Digite os números separados por vírgula. Ex: 205, 206, 207, 208"><?= htmlspecialchars($_POST['numeracao'] ?? '') ?></textarea>
+                              placeholder="Digite os números separados por vírgula. Ex: 205, 206, 207, 208"><?= htmlspecialchars($_POST['numeracao'] ?? '') ?></textarea>
                 <div class="form-text">
                     Máximo 100 pontos por consulta. Separe os números com vírgula.
                 </div>
@@ -436,15 +181,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             <div class="btn-group">
                 <button type="submit" class="btn btn-primary">
-                    <span>📊</span>
                     Gerar Pré-Seleção
                 </button>
                 <button type="reset" class="btn btn-secondary">
-                    <span>🔄</span>
                     Limpar Campos
                 </button>
                 <a href="/impaktonew/app/Views/gestor/listar_ponto.php" class="btn btn-outline">
-                    <span>←</span>
                     Voltar à Lista
                 </a>
             </div>
@@ -472,13 +214,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <td>
                         <div style="font-weight: 600;"><?= htmlspecialchars($ponto['logradouro'] ?? '') ?></div>
                         <?php if ($ponto['descricao']): ?>
-                            <small style="color: #6c757d;"><?= htmlspecialchars(substr($ponto['descricao'], 0, 50)) ?><?= strlen($ponto['descricao']) > 50 ? '...' : '' ?></small>
+                            <small class="text-muted"><?= htmlspecialchars(substr($ponto['descricao'], 0, 50)) ?><?= strlen($ponto['descricao']) > 50 ? '...' : '' ?></small>
                         <?php endif; ?>
                     </td>
                     <td>
                         <div><?= htmlspecialchars($ponto['cidade'] ?? '') ?></div>
                         <?php if ($ponto['regiao']): ?>
-                            <small style="color: #6c757d;"><?= htmlspecialchars($ponto['regiao']) ?></small>
+                            <small class="text-muted"><?= htmlspecialchars($ponto['regiao']) ?></small>
                         <?php endif; ?>
                     </td>
                     <td><?= htmlspecialchars($ponto['tipo'] ?? '') ?></td>
@@ -492,7 +234,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <td>
                         <div><?= htmlspecialchars($ponto['cliente'] ?? '-') ?></div>
                         <?php if ($ponto['agencia']): ?>
-                            <small style="color: #6c757d;"><?= htmlspecialchars($ponto['agencia']) ?></small>
+                            <small class="text-muted"><?= htmlspecialchars($ponto['agencia']) ?></small>
                         <?php endif; ?>
                     </td>
                     <td>
@@ -516,19 +258,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </table>
     </div>
     
-    <div class="card" style="margin-top: 2rem;">
-        <h3 style="margin-bottom: 1rem; color: #2c3e50;">📄 Ações com os Resultados</h3>
+    <div class="card card-acoes" style="margin-top: 2rem;">
+        <h3 style="margin-bottom: 1rem; color: var(--color-text-dark);">📄 Ações com os Resultados</h3>
         <div class="btn-group">
             <button onclick="window.print()" class="btn btn-outline">
-                <span>🖨️</span>
                 Imprimir
             </button>
             <button onclick="exportToCSV()" class="btn btn-outline">
-                <span>📊</span>
                 Exportar CSV
             </button>
             <button onclick="copyToClipboard()" class="btn btn-outline">
-                <span>📋</span>
                 Copiar Lista
             </button>
         </div>
@@ -543,6 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function exportToCSV() {
+    // Código CSV... (mantido)
     const table = document.querySelector('.table');
     if (!table) return;
     
@@ -568,6 +308,7 @@ function exportToCSV() {
 }
 
 function copyToClipboard() {
+    // Código Copy... (mantido)
     const pontos = document.querySelectorAll('.table tbody tr');
     let texto = 'PONTOS SELECIONADOS:\n\n';
     

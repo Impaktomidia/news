@@ -6,6 +6,15 @@ if (!isset($_SESSION['usuario'])) {
     exit;
 }
 
+// ============================================
+// LÓGICA CORRIGIDA: Define a página atual
+// ============================================
+// Em listar_ponto.php, a página ativa é sempre 'pontos'.
+$paginaAtual = 'pontos'; 
+// A lógica para outras páginas está no gestor/index.php, mas aqui definimos o contexto.
+// ============================================
+
+
 // Configuração do banco
 try {
     $pdo = new PDO("mysql:host=localhost;dbname=ipk2024;charset=utf8", "root", "");
@@ -22,8 +31,11 @@ $regiao = $_GET['regiao'] ?? '';
 $situacao = $_GET['situacao'] ?? '';
 $cliente = $_GET['cliente'] ?? '';
 $pagina = (int)($_GET['pagina'] ?? 1);
-$itensPorPagina = 12;
+$itensPorPagina = 5;
 $offset = ($pagina - 1) * $itensPorPagina;
+
+// NOVO: Filtro de status (ativo/inativo)
+$status = $_GET['status'] ?? 'ativo'; // Por padrão mostra apenas ativos
 
 // Buscar clientes para filtro
 $sqlClientes = "SELECT DISTINCT cliente FROM pontos WHERE cliente IS NOT NULL AND cliente != '' ORDER BY cliente";
@@ -32,8 +44,16 @@ $stmtClientes->execute();
 $clientes = $stmtClientes->fetchAll(PDO::FETCH_COLUMN);
 
 // Construir filtros
+// Construir filtros
 $where = [];
 $params = [];
+
+// NOVO: Filtro de status ativo/inativo
+if ($status === 'ativo') {
+    $where[] = "(ativo = 1 OR ativo IS NULL)"; // Considera NULL como ativo para compatibilidade
+} elseif ($status === 'inativo') {
+    $where[] = "ativo = 0";
+}
 
 if ($busca) {
     $where[] = "(numero LIKE :busca OR logradouro LIKE :busca OR cliente LIKE :busca OR descricao LIKE :busca)";
@@ -72,14 +92,14 @@ $totalPaginas = ceil($total / $itensPorPagina);
 // Buscar pontos
 $sql = "SELECT numero, logradouro, descricao, cidade, regiao, cliente, agencia, tipo, situacao,
                CASE 
-                 WHEN fim_contrato IS NULL OR fim_contrato = '0000-00-00' OR fim_contrato = '' 
-                 THEN NULL
-                 ELSE DATE(fim_contrato)
+                   WHEN fim_contrato IS NULL OR fim_contrato = '0000-00-00' OR fim_contrato = '' 
+                   THEN NULL
+                   ELSE DATE(fim_contrato)
                END as fim_contrato_clean
         FROM pontos $whereSql 
         ORDER BY 
-            CASE WHEN numero REGEXP '^[0-9]+$' THEN CAST(numero AS UNSIGNED) ELSE 999999 END,
-            numero ASC 
+             CASE WHEN numero REGEXP '^[0-9]+$' THEN CAST(numero AS UNSIGNED) ELSE 999999 END,
+             numero ASC 
         LIMIT $itensPorPagina OFFSET $offset";
 
 try {
@@ -92,10 +112,10 @@ try {
     
     // Fallback: buscar sem formatação de data
     $sqlFallback = "SELECT numero, logradouro, descricao, cidade, regiao, cliente, agencia, tipo, situacao,
-                           fim_contrato as fim_contrato_clean
-                    FROM pontos $whereSql 
-                    ORDER BY numero ASC 
-                    LIMIT $itensPorPagina OFFSET $offset";
+                             fim_contrato as fim_contrato_clean
+                       FROM pontos $whereSql 
+                       ORDER BY numero ASC 
+                       LIMIT $itensPorPagina OFFSET $offset";
     
     $stmt = $pdo->prepare($sqlFallback);
     $stmt->execute($params);
@@ -103,22 +123,25 @@ try {
 }
 
 
-// Funções auxiliares seguras
+// Função formatarData atualizada
 function formatarData($data) {
     if (!$data || $data === '0000-00-00') {
-        return '<span style="color: #6c757d;">-</span>';
+        return '<span>-</span>';
     }
     try {
         $date = new DateTime($data);
-        return '<span style="color: #495057;">' . $date->format('M/Y') . '</span>';
+        $mesIngles = $date->format('M');
+        $ano = $date->format('Y');
+        $mesPortugues = traduzirMes($mesIngles);
+        return '<span>' . $mesPortugues . '/' . $ano . '</span>';
     } catch (Exception $e) {
-        return '<span style="color: #dc3545;">Inválida</span>';
+        return '<span class="text-danger">Inválida</span>';
     }
 }
 
 function calcularStatus($data) {
     if (!$data || $data === '0000-00-00') {
-        return '<small style="color: #6c757d;">Sem prazo</small>';
+        return '<small class="text-muted">Sem prazo</small>';
     }
     try {
         $fim = new DateTime($data);
@@ -127,18 +150,20 @@ function calcularStatus($data) {
         $meses = ($diff->y * 12) + $diff->m;
         
         if ($fim < $hoje) {
-            return '<small style="color: #dc3545; font-weight: bold;">Vencido</small>';
+            return '<small class="badge-danger">Vencido</small>';
         } elseif ($meses <= 1) {
-            return '<small style="color: #fd7e14; font-weight: bold;">Urgente</small>';
+            return '<small class="badge-warning">Urgente</small>';
         } elseif ($meses <= 3) {
-            return '<small style="color: #ffc107;">Atenção</small>';
+            return '<small class="badge-info">Atenção</small>';
         } else {
-            return '<small style="color: #198754;">OK (' . $meses . 'm)</small>';
+            return '<small class="badge-success">OK (' . $meses . 'm)</small>';
         }
     } catch (Exception $e) {
-        return '<small style="color: #dc3545;">Erro</small>';
+        return '<small class="badge-danger">Erro</small>';
     }
 }
+
+
 
 function badgeSituacao($situacao) {
     $cores = [
@@ -150,352 +175,81 @@ function badgeSituacao($situacao) {
     ];
     
     $cor = $cores[$situacao] ?? ['bg' => '#6c757d', 'text' => 'white'];
+    // Usando estilos inline aqui, mas idealmente seria classes CSS
     return "<span style='background: {$cor['bg']}; color: {$cor['text']}; padding: 4px 10px; border-radius: 15px; font-size: 0.8rem; font-weight: 500;'>$situacao</span>";
 }
+
+// Adicione esta função para traduzir meses
+function traduzirMes($mes) {
+    $meses = [
+        'Jan' => 'Jan', 'Feb' => 'Fev', 'Mar' => 'Mar', 'Apr' => 'Abr',
+        'May' => 'Mai', 'Jun' => 'Jun', 'Jul' => 'Jul', 'Aug' => 'Ago',
+        'Sep' => 'Set', 'Oct' => 'Out', 'Nov' => 'Nov', 'Dec' => 'Dez'
+    ];
+    return $meses[$mes] ?? $mes;
+}
+
+
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lista de Pontos - Impakto</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body { 
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; 
-            background: #f8f9fa; 
-            line-height: 1.6;
-            color: #495057;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 1rem 0;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        }
-        
-        .header-content {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 2rem;
-        }
-        
-        .logo h1 { 
-            color: white; 
-            font-size: 1.8rem; 
-            font-weight: 300;
-        }
-        .logo .red { color: #ffeb3b; font-weight: 700; }
-        
-        .nav-links {
-            display: flex;
-            gap: 1rem;
-        }
-        
-        .nav-links a {
-            color: rgba(255,255,255,0.9);
-            text-decoration: none;
-            padding: 0.6rem 1.2rem;
-            border-radius: 20px;
-            transition: all 0.3s;
-            font-weight: 500;
-        }
-        
-        .nav-links a:hover, .nav-links a.active {
-            background: rgba(255,255,255,0.2);
-            color: white;
-        }
-        
-        .user-info {
-            color: rgba(255,255,255,0.9);
-            font-size: 0.9rem;
-        }
-        
-        .btn-logout {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            padding: 0.6rem 1.2rem;
-            border-radius: 20px;
-            text-decoration: none;
-            margin-left: 1rem;
-            font-weight: 600;
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 2rem;
-        }
-        
-        .controls {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 12px;
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        
-        .busca-row {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-            align-items: center;
-        }
-        
-        .busca-input {
-            flex: 1;
-            padding: 0.8rem 1rem;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-        
-        .busca-input:focus {
-            border-color: #667eea;
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-        
-        .btn-buscar {
-            background: #667eea;
-            color: white;
-            padding: 0.8rem 2rem;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        
-        .btn-buscar:hover {
-            background: #5a6fd8;
-            transform: translateY(-1px);
-        }
-        
-        .filtros-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 1rem;
-            align-items: end;
-        }
-        
-        .filtro-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: #495057;
-            font-size: 0.85rem;
-        }
-        
-        .filtro-group select {
-            width: 100%;
-            padding: 0.7rem;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            transition: border-color 0.3s;
-        }
-        
-        .filtro-group select:focus {
-            border-color: #667eea;
-            outline: none;
-        }
-        
-        .btn-reset {
-            background: #6c757d;
-            color: white;
-            padding: 0.7rem 1.5rem;
-            text-decoration: none;
-            border-radius: 8px;
-            text-align: center;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        
-        .btn-reset:hover {
-            background: #5a6268;
-            transform: translateY(-1px);
-        }
-        
-        .stats {
-            background: white;
-            padding: 1rem 1.5rem;
-            border-radius: 12px;
-            margin-bottom: 2rem;
-            text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        
-        .stats-number {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: #667eea;
-        }
-        
-        .stats-text {
-            color: #6c757d;
-            font-size: 0.9rem;
-            margin-top: 0.25rem;
-        }
-        
-        .table-container {
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            margin-bottom: 2rem;
-        }
-        
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        .table th {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 1rem;
-            text-align: left;
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-        
-        .table td {
-            padding: 1rem;
-            border-bottom: 1px solid #f1f3f4;
-            font-size: 0.9rem;
-        }
-        
-        .table tbody tr {
-            transition: all 0.2s;
-        }
-        
-        .table tbody tr:hover {
-            background: #f8f9fa;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        
-        .numero-col {
-            font-weight: 700;
-            color: #495057;
-            min-width: 80px;
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: #6c757d;
-        }
-        
-        .empty-state-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            opacity: 0.5;
-        }
-        
-        .paginacao {
-            display: flex;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-top: 2rem;
-        }
-        
-        .paginacao a {
-            padding: 0.8rem 1.2rem;
-            background: white;
-            border: 2px solid #e9ecef;
-            text-decoration: none;
-            color: #495057;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        
-        .paginacao a:hover {
-            background: #f8f9fa;
-            border-color: #667eea;
-            transform: translateY(-1px);
-        }
-        
-        .paginacao a.ativo {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-        
-        @media (max-width: 768px) {
-            .container {
-                padding: 0 1rem;
-            }
-            
-            .header-content {
-                flex-direction: column;
-                gap: 1rem;
-                text-align: center;
-                padding: 0 1rem;
-            }
-            
-            .busca-row {
-                flex-direction: column;
-            }
-            
-            .filtros-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .table-container {
-                overflow-x: auto;
-            }
-            
-            .table {
-                min-width: 800px;
-            }
-        }
-        
-        .loading {
-            opacity: 0.6;
-            pointer-events: none;
-        }
-    </style>
+    <link rel="icon" href="/impaktonew/public/img/favicon.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet"> 
+    <link rel="stylesheet" href="/impaktonew/public/assets/css/gestor.css"> 
+ 
+  <title>Lista de Pontos - Impakto Mídia</title>
 </head>
+   
 <body>
 
 <div class="header">
     <div class="header-content">
         <div class="logo">
-            <h1>impa<span class="red">k</span>to</h1>
+            <img src="/impaktonew/public/assets/img/logo.png" alt="Impakto Mídia" class="logo-img">
         </div>
-        
-   <div class="nav-links">
-    <a href="/impaktonew/gestor/index.php">Dashboard</a>
-    <a href="#" class="active">Lista de Pontos</a>
-    <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php">Pré-Seleção</a>
-    </div>
 
+       <form method="get" class="busca-row">
+    <span class="busca-icon">🔍</span>
+    <input type="text" name="busca" class="busca-input" 
+            placeholder="Buscar por número, logradouro, cliente ou descrição..." 
+            value="<?= htmlspecialchars($busca) ?>">
+</form>
+        
+        <nav class="main-nav">
+            <a href="/impaktonew/gestor/index.php" class="nav-link <?= $paginaAtual === 'dashboard' ? 'active' : '' ?>">
+                Dashboard
+            </a>
+            
+            <a href="/impaktonew/app/Views/gestor/listar_ponto.php" class="nav-link <?= $paginaAtual === 'pontos' ? 'active' : '' ?>">
+                Pontos
+            </a>
+            
+            <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php" class="nav-link <?= $paginaAtual === 'pre_selecao' ? 'active' : '' ?>">
+                Pré-Seleção
+            </a>
+            
+            <a href="/impaktonew/app/Views/gestor/relatorios/pre_selecao.php" class="nav-link <?= $paginaAtual === 'relatorios' ? 'active' : '' ?>">
+                Relatórios
+            </a>
+        </nav>
         
         <div class="user-info">
-            Olá, <strong><?= htmlspecialchars($_SESSION['usuario']) ?></strong>
-            <a href="/impaktonew/logout.php" class="btn-logout">Sair</a>
+        
+            <a href="?logout=1" class="btn-logout" onclick="return confirm('Tem certeza que deseja sair?')">
+                Sair
+            </a>
         </div>
     </div>
 </div>
 
 <div class="container">
-    <div class="controls">
-        <form method="get" class="busca-row">
-            <input type="text" name="busca" class="busca-input" 
-                   placeholder="Buscar por número, logradouro, cliente ou descrição..." 
-                   value="<?= htmlspecialchars($busca) ?>">
-            <button type="submit" class="btn-buscar">Buscar</button>
-        </form>
+    <div class="controls">       
         
         <form method="get" class="filtros-grid">
             <input type="hidden" name="busca" value="<?= htmlspecialchars($busca) ?>">
@@ -574,8 +328,8 @@ function badgeSituacao($situacao) {
                     <td colspan="7" class="empty-state">
                         <div class="empty-state-icon">🔍</div>
                         <div>Nenhum ponto encontrado com os filtros selecionados</div>
-                        <div style="margin-top: 0.5rem; font-size: 0.8rem;">
-                            Tente ajustar os filtros ou fazer uma nova busca
+                        <div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--color-text-muted);">
+                             Tente ajustar os filtros ou fazer uma nova busca
                         </div>
                     </td>
                 </tr>
@@ -586,7 +340,7 @@ function badgeSituacao($situacao) {
                         <td>
                             <div style="font-weight: 600;"><?= htmlspecialchars($ponto['logradouro'] ?? '-') ?></div>
                             <?php if ($ponto['descricao']): ?>
-                                <div style="font-size: 0.8rem; color: #6c757d; margin-top: 2px;">
+                                <div style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 2px;">
                                     <?= htmlspecialchars(substr($ponto['descricao'], 0, 60)) ?><?= strlen($ponto['descricao']) > 60 ? '...' : '' ?>
                                 </div>
                             <?php endif; ?>
@@ -594,19 +348,19 @@ function badgeSituacao($situacao) {
                         <td>
                             <div><?= htmlspecialchars($ponto['cidade'] ?? '-') ?></div>
                             <?php if ($ponto['regiao']): ?>
-                                <div style="font-size: 0.8rem; color: #6c757d;"><?= htmlspecialchars($ponto['regiao']) ?></div>
+                                <div style="font-size: 0.8rem; color: var(--color-text-muted);"><?= htmlspecialchars($ponto['regiao']) ?></div>
                             <?php endif; ?>
                         </td>
                         <td>
                             <div><?= htmlspecialchars($ponto['cliente'] ?? '-') ?></div>
                             <?php if ($ponto['agencia']): ?>
-                                <div style="font-size: 0.8rem; color: #6c757d;"><?= htmlspecialchars($ponto['agencia']) ?></div>
+                                <div style="font-size: 0.8rem; color: var(--color-text-muted);"><?= htmlspecialchars($ponto['agencia']) ?></div>
                             <?php endif; ?>
                         </td>
                         <td><?= htmlspecialchars($ponto['tipo'] ?? '-') ?></td>
                         <td><?= badgeSituacao($ponto['situacao'] ?? 'N/A') ?></td>
                         <td>
-                            <?= formatarData($ponto['fim_contrato_clean']) ?><br>
+                            <div class="text-dark"><?= formatarData($ponto['fim_contrato_clean']) ?></div>
                             <?= calcularStatus($ponto['fim_contrato_clean']) ?>
                         </td>
                     </tr>

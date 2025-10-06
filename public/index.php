@@ -6,21 +6,6 @@
 
 session_start();
 
-/// Processar logout se vier redirecionado
-if (isset($_GET['mensagem']) && $_GET['mensagem'] === 'logout_sucesso') {
-    $mensagem_sucesso = "Logout realizado com sucesso!";
-}
-
-// Mostrar mensagem no HTML:
-?>
-<?php if (isset($mensagem_sucesso)): ?>
-    <div class="alert alert-success">
-        ✅ <?= htmlspecialchars($mensagem_sucesso) ?>
-    </div>
-<?php endif; ?>
-
-<?php
-
 // Verificar se já está logado
 if (isset($_SESSION['usuario'])) {
     header("Location: gestor/");
@@ -39,11 +24,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo = new PDO(
-                "mysql:host=localhost;dbname=ipk2024;charset=utf8",
+                "mysql:host= localhost;dbname=ipk2024;charset=utf8",
                 "root",
                 "",
                 [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
             );
+
             
             $sql = "SELECT id, usuario, senha, ativo FROM admins WHERE usuario = ? LIMIT 1";
             $stmt = $pdo->prepare($sql);
