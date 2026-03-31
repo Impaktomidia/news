@@ -11,7 +11,7 @@
     --color-accent-danger: #e34c3e;
     --color-accent-secondary: #007bff;
     --color-border: #e9ecef;
-    --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.06);
+    --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.06);       
     --border-radius: 8px;
     --color-success-bg: #dff0e6;
     --color-success-text: #38761d;
@@ -640,7 +640,7 @@ a {
 /* ========== BADGES ========== */
 .badge {
     padding: 0.2rem 0.6rem;
-    border-radius: 10px;
+    border-radius: 0px;
     font-size: 0.75rem;
     font-weight: 600;
     text-align: center;
@@ -649,7 +649,7 @@ a {
 
 .badge-disponivel {
     background: #d4edda;
-    color: #155724;
+    color: #c4cc5d;
 }
 
 .badge-ocupado {
